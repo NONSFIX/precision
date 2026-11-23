@@ -5,48 +5,89 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Precision</title>
 <style>
-  body { margin: 0; font-family: system-ui, sans-serif; background: #f4f4f2; color: #222; }
-  header { padding: 12px 16px; display: flex; gap: 12px; align-items: center; background: #fff; border-bottom: 1px solid #ddd; flex-wrap: wrap; }
-  main { display: flex; gap: 16px; padding: 16px; flex-wrap: wrap; align-items: flex-start; }
-  #preview { background: #fff; border: 1px solid #ddd; flex: 2 1 420px; min-height: 260px; display: grid; place-items: center; position: sticky; top: 16px; overflow: hidden; }
-  #preview svg { width: 100%; max-height: 80vh; height: auto; display: block; }
+  :root { --ink: #151a21; --gold: #b8861f; --teal: #2c6b66; --muted: #5b6370; --red: #b3261e; --line: #d5d9df; --paper: #eef0f3; --card: #fff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 'IBM Plex Sans Thai', system-ui, sans-serif; background: var(--paper); color: var(--ink); }
+  header { background: var(--ink); color: #fff; padding: 14px 20px; display: flex; gap: 12px 24px; align-items: center; justify-content: space-between; flex-wrap: wrap; border-bottom: 3px solid var(--gold); }
+  .brand { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .brand h1 { margin: 0; font: 700 24px 'Chakra Petch', sans-serif; text-transform: uppercase; letter-spacing: .12em; }
+  .brand h1 span { color: var(--gold); }
+  .brand p { margin: 0; color: #c9ced6; font-size: 13px; }
+  .tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .tools .sep { width: 1px; height: 22px; background: #3a414c; margin: 0 4px; }
+  button, .btn { font: 500 13px 'IBM Plex Sans Thai', sans-serif; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; white-space: nowrap; }
+  button:hover, .btn:hover { border-color: var(--teal); color: var(--teal); }
+  button:disabled { opacity: .45; cursor: default; color: var(--muted); border-color: var(--line); }
+  header button, header .btn { background: transparent; color: #e6e9ee; border-color: #3a414c; }
+  header button:hover, header .btn:hover { background: #222934; color: #fff; border-color: var(--gold); }
+  header .primary { background: var(--gold); border-color: var(--gold); color: var(--ink); font-weight: 600; }
+  header .primary:hover { background: #cf9a2c; color: var(--ink); }
+  header .accent { background: var(--teal); border-color: var(--teal); color: #fff; }
+  header .accent:hover { background: #357f79; }
+  button:focus-visible, .btn:focus-within, input:focus, textarea:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+  .steps { display: flex; gap: 8px 22px; flex-wrap: wrap; padding: 10px 20px; background: #fff; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+  .steps b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); color: #fff; font: 600 11px 'Chakra Petch', sans-serif; margin-right: 6px; }
+  .steps .red { color: var(--red); font-weight: 600; }
+  #msg { margin: 10px 20px 0; padding: 8px 12px; border-radius: 6px; background: #fbeaea; color: var(--red); border: 1px solid #ecc3c0; }
+  #msg:empty { display: none; }
+  main { display: grid; grid-template-columns: minmax(380px, 1.5fr) minmax(320px, 1fr) minmax(300px, .9fr); gap: 16px; padding: 16px 20px 32px; align-items: start; }
+  .panel-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0 0 6px; font: 600 12px 'Chakra Petch', sans-serif; text-transform: uppercase; letter-spacing: .1em; color: var(--ink); }
+  .panel-h span { font: 400 12px 'IBM Plex Sans Thai', sans-serif; text-transform: none; letter-spacing: 0; color: var(--muted); }
+  #stage { position: sticky; top: 16px; }
+  #preview { background: #e3e6ea repeating-conic-gradient(#dadee3 0 25%, transparent 0 50%) 0 0 / 20px 20px; border: 1px solid var(--line); border-radius: 10px; min-height: 300px; display: grid; place-items: center; padding: 20px; overflow: hidden; color: var(--muted); text-align: center; }
+  #preview:has(svg) { min-height: 0; }
+  #preview svg { width: 100%; max-height: 72vh; height: auto; display: block; box-shadow: 0 6px 24px rgba(21, 26, 33, .18); background: #fff; }
   .tpl { width: 100%; }
   /* Off-screen, not display:none: hidden templates still need geometry for fitting other rows. */
   .tpl.off { position: absolute; left: -10000px; top: 0; visibility: hidden; }
-  #side { flex: 1 1 340px; display: grid; gap: 8px; }
+  #side { display: grid; gap: 10px; min-width: 0; }
   #frames { display: grid; gap: 8px; }
-  #rows { background: #fff; border: 1px solid #ddd; padding: 8px; font-size: 13px; display: grid; gap: 6px; }
-  #rows ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; max-height: 30vh; overflow: auto; }
-  #rows li { padding: 4px 6px; cursor: pointer; border-radius: 3px; display: flex; justify-content: space-between; gap: 8px; }
-  #rows li.cur { background: #fff4c2; font-weight: 600; }
-  #rows li.bad { color: #a00; }
-  #rows li .tplname { color: #888; font-weight: 400; }
-  .frame { background: #fff; border: 1px solid #ddd; padding: 8px; display: grid; gap: 6px; font-size: 13px; }
-  .frame.sel { border-color: #e0a000; box-shadow: 0 0 0 2px #ffe08a; }
-  .frame h3 { margin: 0; font-size: 14px; font-family: ui-monospace, monospace; }
-  .frame textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; resize: vertical; }
-  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  #rows, .frame, #flags { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+  #rows { padding: 10px; display: grid; gap: 8px; }
+  #rows > .row strong { font: 600 14px 'Chakra Petch', sans-serif; color: var(--ink); }
+  #rows > .row span { color: var(--muted); font-size: 12px; flex: 1; }
+  #rows ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; max-height: 30vh; overflow: auto; }
+  #rows li { padding: 6px 10px; cursor: pointer; border-radius: 6px; display: flex; justify-content: space-between; gap: 8px; border: 1px solid transparent; background: #f6f7f9; }
+  #rows li:hover { background: #eceef1; }
+  #rows li.cur { background: #f7efdc; border-color: var(--gold); font-weight: 600; }
+  #rows li.bad { background: #fbeaea; color: var(--red); border-color: #e9b8b4; }
+  #rows li.bad.cur { border-color: var(--red); }
+  #rows li.bad.cur { background: #f6d9d7; }
+  #rows li > span:last-child { font-weight: 600; color: var(--teal); }
+  #rows li.bad > span:last-child { color: #fff; background: var(--red); border-radius: 10px; padding: 0 8px; font-size: 12px; }
+  #rows li .tplname { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 4px; }
+  .frame { padding: 10px 12px; display: grid; gap: 6px; font-size: 13px; }
+  .frame.sel { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(184, 134, 31, .25); }
+  .frame h3 { margin: 0; font: 600 13px ui-monospace, Consolas, monospace; color: var(--ink); }
+  textarea, input { font: 13px 'IBM Plex Sans Thai', sans-serif; border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; background: #fff; color: var(--ink); }
+  .frame textarea { width: 100%; font-size: 14px; resize: vertical; }
+  textarea:disabled { background: #f1f3f5; color: var(--muted); }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 12px; }
   .row label { display: flex; gap: 4px; align-items: center; }
-  .row input { width: 52px; }
-  .row input.font { width: 130px; }
-  .cmyk input { width: 38px; }
-  .swatch { width: 16px; height: 16px; border: 1px solid #999; display: inline-block; }
-  #jsonpane { flex: 1 1 300px; display: grid; gap: 4px; position: sticky; top: 16px; }
-  #json { width: 100%; box-sizing: border-box; height: 60vh; font: 12px/1.4 ui-monospace, monospace; resize: vertical; tab-size: 2; }
-  #json.bad { outline: 2px solid #c00; }
-  #jsonerr { color: #a00; font-size: 13px; min-height: 1.2em; }
-  #msg { color: #a00; }
-  @media (max-width: 900px) { #preview, #jsonpane { position: static; } } /* stacked layout: pinned preview would cover the cards */
-  .hl { fill: rgba(255, 200, 0, .25); stroke: #e0a000; stroke-width: 1; pointer-events: none; }
-  .hl.over { fill: rgba(220, 0, 0, .15); stroke: #c00; }
-  .fit { font-size: 12px; color: #666; }
-  .fit.over { color: #c00; font-weight: 600; }
-  .frame.over { border-color: #c00; }
-  #flags { background: #fff; border: 1px solid #ddd; padding: 6px 8px; font-size: 13px; max-height: 30vh; overflow: auto; }
-  #flags.ok { color: #2a7a2a; }
-  #flags ul { margin: 4px 0 0; padding-left: 18px; color: #a00; }
-  #flags li { cursor: pointer; }
-  .cardflags { font-size: 12px; color: #a00; }
+  .row input { width: 58px; }
+  .row input.font { width: 140px; }
+  .cmyk input { width: 44px; }
+  .swatch { width: 18px; height: 18px; border: 1px solid #aaa; border-radius: 4px; display: inline-block; }
+  #jsonpane { display: grid; gap: 8px; position: sticky; top: 16px; min-width: 0; }
+  #json { width: 100%; height: 56vh; font: 12px/1.5 ui-monospace, Consolas, monospace; resize: vertical; tab-size: 2; background: var(--ink); color: #dfe4ea; border: 1px solid var(--ink); border-radius: 10px; padding: 12px; }
+  #json.bad { outline: 2px solid var(--red); }
+  #jsonerr { color: var(--red); font-size: 13px; }
+  #jsonerr:empty { display: none; }
+  @media (max-width: 1280px) { main { grid-template-columns: minmax(360px, 1.4fr) minmax(320px, 1fr); } #jsonpane { grid-column: 1 / -1; position: static; } }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 12px; } #stage, #jsonpane { position: static; } } /* stacked: pinned preview would cover the cards */
+  .hl { fill: rgba(184, 134, 31, .18); stroke: #b8861f; stroke-width: 1; pointer-events: none; }
+  .hl.over { fill: rgba(179, 38, 30, .15); stroke: #b3261e; }
+  .fit { font-size: 12px; color: var(--teal); }
+  .fit.over { color: #fff; background: var(--red); font-weight: 600; border-radius: 4px; padding: 1px 6px; justify-self: start; }
+  .frame.over { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
+  #flags { padding: 10px 12px; font-size: 13px; max-height: 30vh; overflow: auto; border-color: #e9b8b4; background: #fdf3f2; }
+  #flags strong { color: var(--red); }
+  #flags.ok { color: var(--teal); border-color: #b9d3d0; background: #eef5f4; font-weight: 600; }
+  #flags ul { margin: 6px 0 0; padding-left: 18px; color: var(--red); }
+  #flags li { cursor: pointer; padding: 1px 0; }
+  #flags li:hover { text-decoration: underline; }
+  .cardflags { font-size: 12px; color: var(--red); font-weight: 600; }
+  .cardflags:empty { display: none; }
   #print { display: none; }
   @media print {
     body > *:not(#print) { display: none !important; }
@@ -58,26 +99,43 @@
 </head>
 <body>
 <header>
-  <strong>Precision</strong>
-  <label>Open SVG <input type="file" id="file" accept=".svg,image/svg+xml" multiple></label>
-  <button id="sample">Load sample</button>
-  <button id="import">Import JSON</button>
-  <input type="file" id="importFile" accept=".json,application/json" hidden>
-  <button id="export">Export JSON</button>
-  <button id="report">Export report</button>
-  <button id="pdf" title="Opens the print dialog: choose “Save as PDF”. One page per row that passes; flagged rows are skipped.">Preview PDF</button>
-  <span id="msg"></span>
+  <div class="brand">
+    <h1>Precision<span>.</span></h1>
+    <p>Fills Illustrator text frames from job JSON, so label text is never retyped by hand.</p>
+  </div>
+  <nav class="tools">
+    <button id="sample" class="primary">Load sample</button>
+    <label class="btn" title="SVG exported from Illustrator (Object IDs: Layer Names). Several files = several templates.">Open SVG <input type="file" id="file" accept=".svg,image/svg+xml" multiple hidden></label>
+    <span class="sep"></span>
+    <button id="import">Import JSON</button>
+    <input type="file" id="importFile" accept=".json,application/json" hidden>
+    <button id="export">Export JSON</button>
+    <span class="sep"></span>
+    <button id="report">Export report</button>
+    <button id="pdf" class="accent" title="Opens the print dialog: choose “Save as PDF”. One page per row that passes; flagged rows are skipped.">Preview PDF</button>
+  </nav>
 </header>
+<div class="steps">
+  <span><b>1</b>Template = SVG from Illustrator, frames named by layer</span>
+  <span><b>2</b>Edit a row in the form or the job JSON — both stay in sync</span>
+  <span><b>3</b>Text shrinks to fit; <span class="red">red rows</span> break a rule and are skipped</span>
+  <span><b>4</b>Export report / preview PDF</span>
+</div>
+<div id="msg"></div>
 <main>
-  <div id="preview">Open an SVG exported from Illustrator (Object IDs: Layer Names)</div>
+  <section id="stage">
+    <div class="panel-h">Preview <span>RGB screen preview · print PDF comes from Illustrator</span></div>
+    <div id="preview">Loading the sample job…</div>
+  </section>
   <div id="side">
     <div id="rows"></div>
+    <div class="panel-h">Text frames <span>click a field to outline its frame</span></div>
     <div id="frames"></div>
   </div>
   <datalist id="fontlist"></datalist>
   <div id="jsonpane">
     <div id="flags"></div>
-    <strong>Job JSON</strong>
+    <div class="panel-h">Job JSON <span>edit here or in the form</span></div>
     <textarea id="json" spellcheck="false"></textarea>
     <div id="jsonerr"></div>
   </div>
@@ -574,12 +632,20 @@ $('#file').onchange = async e => {
   showRow(cur);
   syncJson();
 };
+const getText = async u => { const r = await fetch(u); if (!r.ok) throw new Error(`${u}: HTTP ${r.status}`); return r.text(); };
 $('#sample').onclick = async () => {
-  for (const n of ['label.svg', 'label-b.svg']) addTemplate(await (await fetch('sample/' + n)).text(), n);
-  cur = 0;
-  applyJob(await (await fetch('sample/label.job.json')).text());
-  syncJson();
+  try {
+    for (const n of ['label.svg', 'label-b.svg']) addTemplate(await getText('sample/' + n), n);
+    cur = 0;
+    applyJob(await getText('sample/label.job.json'));
+    syncJson();
+    $('#msg').textContent = '';
+  } catch (err) {
+    $('#msg').textContent = `Could not load the sample (${err.message}). Open an SVG instead.`;
+    if (!Object.keys(templates).length) $('#preview').textContent = 'Open an SVG exported from Illustrator (Object IDs: Layer Names), or click Load sample.';
+  }
 };
+$('#sample').onclick(); // first visit shows a working job, not an empty page
 
 $('#import').onclick = () => $('#importFile').click();
 $('#importFile').onchange = async e => {
