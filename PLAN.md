@@ -77,9 +77,9 @@ Flag reasons: `overflow`, `font-missing`, `rgb-color`, `rgb-template`, `unknown-
 - [x] **S4** Google Fonts picker + PostScript name map. *(10 Thai families, 75 PostScript names like `Sarabun-Bold`; names follow Google's static-file pattern — confirm on the plugin PC.)*
 - [x] **S5** Import/Export job JSON; validation flags (all reasons above). *(`rgb-template` is plugin-only: SVG has no CMYK mode. `font-missing` in the demo = not in the Google Thai font map.)*
 - [x] **S6** Batch: rows list, per-row template, per-row preview, red flagged rows, report. *(Open SVG takes several files; every row is fitted + validated, not just the shown one; Export report = same shape as the plugin's `report.json`.)*
-- [ ] **S7** Export preview PDF (RGB) per row. Deploy to GitHub Pages.
+- [x] **S7** Export preview PDF (RGB) per row. Deploy to GitHub Pages.
   - [x] Preview PDF: browser print → "Save as PDF", one page per passing row, page size = artboard. Template CSS scoped per SVG (Illustrator reuses `.st0…` in every file).
-  - [ ] Deploy to GitHub Pages (waiting for go-ahead: new public repo).
+  - [x] Deployed: repo `NONSFIX/precision` (public), live at https://nonsfix.github.io/precision/
 
 ### Phase 2 — Illustrator plugin (needs Illustrator version from test PC)
 - [ ] **P1** Fill logic: open `.ai`, fill frames by name, World-Ready + Thai, CMYK, font check.
