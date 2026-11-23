@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mimics Illustrator "Export As SVG" (Styling: Internal CSS, Object IDs: Layer Names). Replace with a real export to verify. -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 300 420" style="enable-background:new 0 0 300 420;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#F2E6C9;}
+	.st1{fill:#B23A2B;}
+	.st2{fill:#2B2B2B;}
+	.st3{font-family:'Sarabun-Bold';}
+	.st4{font-size:28px;}
+	.st5{font-family:'Sarabun-Regular';}
+	.st6{font-size:12px;}
+	.st7{fill:#FFFFFF;}
+</style>
+<rect class="st0" width="300" height="420"/>
+<rect x="20" y="20" class="st1" width="260" height="180"/>
+<path id="label_outlined" class="st2" d="M30,380h40v4H30V380z"/>
+<text id="title" transform="matrix(1 0 0 1 24 240)" class="st2 st3 st4">แมวน้อย</text>
+<text id="body" transform="matrix(1 0 0 1 24 270)"><tspan x="0" y="0" class="st2 st5 st6">แมวเป็นสัตว์เลี้ยงที่น่ารัก</tspan><tspan x="0" y="16" class="st2 st5 st6">ชอบนอนกลางวัน</tspan></text>
+<text id="_x24_price" transform="matrix(1 0 0 1 200 380)" class="st7 st3 st4">฿120</text>
+</svg>

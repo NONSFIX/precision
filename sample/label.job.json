@@ -1,0 +1,68 @@
+{
+  "template": "label.svg",
+  "defaults": { "minSize": 6.1, "minScale": 90 },
+  "rows": [
+    {
+      "filename": "midnight-mango",
+      "vars": { "abv": 5.5, "ibu": 24 },
+      "fields": {
+        "desc": { "text": "หยดสุดท้ายของคืนฤดูร้อน มะม่วงสุกกับมอลต์คั่วเข้ม\nดื่มเย็นจัด แล้วปล่อยให้ค่ำคืนพาไป\nอย่าลืมแบ่งเพื่อน" },
+        "type_line": { "text": "MANGO PORTER — TOP-FERMENTED ALE" },
+        "ingredients": { "runs": [
+          { "text": "ส่วนผสม: น้ำ, " },
+          { "text": "มอลต์ข้าวบาร์เลย์", "font": "Sarabun-Bold" },
+          { "text": ", มะม่วง, ฮอปส์, ยีสต์" }
+        ] },
+        "brewer": { "text": "ผลิตโดย Hop Lab Co., 12 ถนนตัวอย่าง กรุงเทพฯ\nเก็บในที่เย็น หลีกเลี่ยงแสงแดด 6–10 °C" },
+        "url": { "text": "www.hoplab.example" },
+        "stats": { "text": "IBU: {ibu} SRM: 30 PLATO: 13.5°" },
+        "volume": { "text": "330ml {abv,}% vol." },
+        "title": { "text": "MIDNIGHT\nMANGO" },
+        "style_abv": { "runs": [
+          { "text": "MANGO PORTER " },
+          { "text": "{abv.}", "size": 13, "color": { "cmyk": [0, 0, 0, 100] } },
+          { "text": "% ABV", "size": 8, "color": { "cmyk": [0, 0, 0, 100] } }
+        ] }
+      }
+    },
+    {
+      "filename": "sunrise-lychee",
+      "template": "label-b.svg",
+      "vars": { "abv": 4.9, "ibu": 18 },
+      "fields": {
+        "desc": { "text": "ลิ้นจี่สดจากสวนยามเช้า หอมหวานเบาสบาย\nดื่มตอนแดดอ่อน กับเพื่อนสนิทสักคน" },
+        "type_line": { "text": "LYCHEE BLONDE — TOP-FERMENTED ALE" },
+        "ingredients": { "runs": [
+          { "text": "ส่วนผสม: น้ำ, " },
+          { "text": "มอลต์ข้าวสาลี", "font": "Sarabun-Bold" },
+          { "text": ", ลิ้นจี่, ฮอปส์, ยีสต์" }
+        ] },
+        "brewer": { "text": "ผลิตโดย Hop Lab Co., 12 ถนนตัวอย่าง กรุงเทพฯ\nเก็บในที่เย็น หลีกเลี่ยงแสงแดด 4–8 °C" },
+        "url": { "text": "www.hoplab.example" },
+        "stats": { "text": "IBU: {ibu} SRM: 4 PLATO: 11.2°" },
+        "volume": { "text": "330ml {abv,}% vol." },
+        "title": { "text": "SUNRISE\nLYCHEE" },
+        "style_abv": { "runs": [
+          { "text": "LYCHEE BLONDE " },
+          { "text": "{abv.}", "size": 13, "color": { "cmyk": [0, 0, 0, 100] } },
+          { "text": "% ABV", "size": 8, "color": { "cmyk": [0, 0, 0, 100] } }
+        ] }
+      }
+    },
+    {
+      "filename": "storm-tamarind",
+      "vars": { "abv": 7.2, "ibu": 40 },
+      "fields": {
+        "desc": { "text": "มะขามเปรี้ยวอมหวานกับมอลต์ดำ เหมือนพายุฤดูฝนที่มาไม่บอกล่วงหน้า แต่ก็จากไปพร้อมกลิ่นดินหอม ๆ และความทรงจำที่ไม่มีวันลืม เก็บไว้ดื่มในคืนที่ฝนตกหนักที่สุดของปี ฟังเสียงฟ้าร้องไปพร้อมกับเพื่อนที่รักที่สุด ทุกหยดคือเรื่องเล่า ทุกขวดคือการเดินทาง ไม่ว่าจะไกลแค่ไหนก็จะกลับมาหาเราเสมอ", "minSize": 7 },
+        "type_line": { "text": "TAMARIND STOUT — TOP-FERMENTED ALE" },
+        "ingredients": { "text": "ส่วนผสม: น้ำ, มอลต์ข้าวบาร์เลย์, มะขาม, ฮอปส์, ยีสต์" },
+        "brewer": { "text": "ผลิตโดย Hop Lab Co., 12 ถนนตัวอย่าง กรุงเทพฯ\nเก็บในที่เย็น หลีกเลี่ยงแสงแดด 8–12 °C" },
+        "url": { "text": "www.hoplab.example" },
+        "stats": { "text": "IBU: {ibu} SRM: 40 PLATO: 17.0°" },
+        "volume": { "text": "330ml {abv,}% vol." },
+        "title": { "text": "STORM\nTAMARIND" },
+        "style_abv": { "text": "TAMARIND STOUT {abv.}% ABV" }
+      }
+    }
+  ]
+}

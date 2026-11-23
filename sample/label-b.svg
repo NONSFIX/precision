@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original sample in the shape of a beer label. Mimics Illustrator "Export As SVG" (Internal CSS, Object IDs: Layer Names). -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" viewBox="0 0 600 260" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#7CC4D8;}
+	.st1{fill:#FFFFFF;}
+	.st2{fill:#F6E27A;}
+	.st3{fill:#2B2B2B;}
+	.st4{fill:#D8352A;}
+	.st5{font-family:'Sarabun-Bold';}
+	.st6{font-family:'Sarabun-Regular';}
+	.st7{font-size:7px;}
+	.st8{font-size:6px;}
+	.st9{font-size:14px;}
+	.st10{font-size:26px;}
+	.st11{font-size:10px;}
+</style>
+<rect class="st0" width="600" height="260"/>
+<circle class="st2" cx="470" cy="120" r="85"/>
+<circle class="st1" cx="540" cy="60" r="22"/>
+<path class="st3" d="M300,32h90v10h-90z M300,46h90v3h-90z"/>
+<path id="cloud" class="st1" d="M250,260c-30,0-40-30-15-40c0-30,40-40,60-25c20-25,70-20,80,5c30-5,50,25,30,45c10,10,5,15-5,15z"/>
+<g id="barcode_art">
+	<rect x="18" y="200" class="st1" width="110" height="48"/>
+	<path class="st3" d="M24,206h2v32h-2z M28,206h1v32h-1z M31,206h3v32h-3z M36,206h1v32h-1z M40,206h2v32h-2z M45,206h1v32h-1z M48,206h3v32h-3z M53,206h1v32h-1z M57,206h2v32h-2z M62,206h1v32h-1z M66,206h3v32h-3z M71,206h1v32h-1z M75,206h2v32h-2z M80,206h1v32h-1z M84,206h3v32h-3z M90,206h1v32h-1z M94,206h2v32h-2z M99,206h1v32h-1z M103,206h3v32h-3z M108,206h1v32h-1z M112,206h2v32h-2z M117,206h1v32h-1z"/>
+</g>
+<!-- Text boxes: Illustrator's SVG export drops area-type bounds, so each frame gets a no-fill rect named <frame>_box on a hidden layer. -->
+<g id="boxes" style="display:none;">
+	<rect id="desc_box" x="18" y="14" style="fill:none;" width="210" height="30"/>
+	<rect id="type_line_box" x="18" y="52" style="fill:none;" width="210" height="9"/>
+	<rect id="ingredients_box" x="18" y="62" style="fill:none;" width="210" height="9"/>
+	<rect id="brewer_box" x="18" y="72" style="fill:none;" width="210" height="19"/>
+	<rect id="url_box" x="18" y="96" style="fill:none;" width="210" height="9"/>
+	<rect id="stats_box" x="18" y="106" style="fill:none;" width="210" height="9"/>
+	<rect id="volume_box" x="18" y="127" style="fill:none;" width="210" height="18"/>
+	<rect id="title_box" x="262" y="182" style="fill:none;" width="140" height="54"/>
+	<rect id="style_abv_box" x="245" y="242" style="fill:none;" width="170" height="13"/>
+</g>
+<text id="desc" transform="matrix(1 0 0 1 18 22)"><tspan x="0" y="0" class="st1 st5 st7">หยดสุดท้ายของคืนฤดูร้อน มะม่วงสุกกับมอลต์คั่วเข้ม</tspan><tspan x="0" y="9" class="st1 st5 st7">ดื่มเย็นจัด แล้วปล่อยให้ค่ำคืนพาไป</tspan><tspan x="0" y="18" class="st1 st5 st7">อย่าลืมแบ่งเพื่อน</tspan></text>
+<text id="type_line" transform="matrix(1 0 0 1 18 58)" class="st1 st5 st8">MANGO PORTER — TOP-FERMENTED ALE</text>
+<text id="ingredients" transform="matrix(1 0 0 1 18 68)" class="st1 st6 st8">ส่วนผสม: น้ำ, มอลต์ข้าวบาร์เลย์, มะม่วง, ฮอปส์, ยีสต์</text>
+<text id="brewer" transform="matrix(1 0 0 1 18 78)"><tspan x="0" y="0" class="st1 st6 st8">ผลิตโดย Hop Lab Co., 12 ถนนตัวอย่าง กรุงเทพฯ</tspan><tspan x="0" y="8" class="st1 st6 st8">เก็บในที่เย็น หลีกเลี่ยงแสงแดด 6–10 °C</tspan></text>
+<text id="url" transform="matrix(1 0 0 1 18 102)" class="st1 st6 st8">www.hoplab.example</text>
+<text id="stats" transform="matrix(1 0 0 1 18 112)" class="st1 st5 st8">IBU: 24 SRM: 30 PLATO: 13.5°</text>
+<text id="volume" transform="matrix(1 0 0 1 18 140)" class="st1 st5 st9">330ml 5,5% vol.</text>
+<text id="title" transform="matrix(1 0 0 1 270 205)"><tspan x="0" y="0" class="st3 st5 st10">MIDNIGHT</tspan><tspan x="0" y="24" class="st3 st5 st10">MANGO</tspan></text>
+<text id="style_abv" transform="matrix(1 0 0 1 250 252)" class="st4 st5 st11">MANGO PORTER 5.5% ABV</text>
+</svg>

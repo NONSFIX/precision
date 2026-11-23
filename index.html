@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Precision</title>
+<style>
+  body { margin: 0; font-family: system-ui, sans-serif; background: #f4f4f2; color: #222; }
+  header { padding: 12px 16px; display: flex; gap: 12px; align-items: center; background: #fff; border-bottom: 1px solid #ddd; flex-wrap: wrap; }
+  main { display: flex; gap: 16px; padding: 16px; flex-wrap: wrap; align-items: flex-start; }
+  #preview { background: #fff; border: 1px solid #ddd; flex: 2 1 420px; min-height: 260px; display: grid; place-items: center; position: sticky; top: 16px; overflow: hidden; }
+  #preview svg { width: 100%; max-height: 80vh; height: auto; display: block; }
+  .tpl { width: 100%; }
+  /* Off-screen, not display:none: hidden templates still need geometry for fitting other rows. */
+  .tpl.off { position: absolute; left: -10000px; top: 0; visibility: hidden; }
+  #side { flex: 1 1 340px; display: grid; gap: 8px; }
+  #frames { display: grid; gap: 8px; }
+  #rows { background: #fff; border: 1px solid #ddd; padding: 8px; font-size: 13px; display: grid; gap: 6px; }
+  #rows ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; max-height: 30vh; overflow: auto; }
+  #rows li { padding: 4px 6px; cursor: pointer; border-radius: 3px; display: flex; justify-content: space-between; gap: 8px; }
+  #rows li.cur { background: #fff4c2; font-weight: 600; }
+  #rows li.bad { color: #a00; }
+  #rows li .tplname { color: #888; font-weight: 400; }
+  .frame { background: #fff; border: 1px solid #ddd; padding: 8px; display: grid; gap: 6px; font-size: 13px; }
+  .frame.sel { border-color: #e0a000; box-shadow: 0 0 0 2px #ffe08a; }
+  .frame h3 { margin: 0; font-size: 14px; font-family: ui-monospace, monospace; }
+  .frame textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; resize: vertical; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .row label { display: flex; gap: 4px; align-items: center; }
+  .row input { width: 52px; }
+  .row input.font { width: 130px; }
+  .cmyk input { width: 38px; }
+  .swatch { width: 16px; height: 16px; border: 1px solid #999; display: inline-block; }
+  #jsonpane { flex: 1 1 300px; display: grid; gap: 4px; position: sticky; top: 16px; }
+  #json { width: 100%; box-sizing: border-box; height: 60vh; font: 12px/1.4 ui-monospace, monospace; resize: vertical; tab-size: 2; }
+  #json.bad { outline: 2px solid #c00; }
+  #jsonerr { color: #a00; font-size: 13px; min-height: 1.2em; }
+  #msg { color: #a00; }
+  @media (max-width: 900px) { #preview, #jsonpane { position: static; } } /* stacked layout: pinned preview would cover the cards */
+  .hl { fill: rgba(255, 200, 0, .25); stroke: #e0a000; stroke-width: 1; pointer-events: none; }
+  .hl.over { fill: rgba(220, 0, 0, .15); stroke: #c00; }
+  .fit { font-size: 12px; color: #666; }
+  .fit.over { color: #c00; font-weight: 600; }
+  .frame.over { border-color: #c00; }
+  #flags { background: #fff; border: 1px solid #ddd; padding: 6px 8px; font-size: 13px; max-height: 30vh; overflow: auto; }
+  #flags.ok { color: #2a7a2a; }
+  #flags ul { margin: 4px 0 0; padding-left: 18px; color: #a00; }
+  #flags li { cursor: pointer; }
+  .cardflags { font-size: 12px; color: #a00; }
+  #print { display: none; }
+  @media print {
+    body > *:not(#print) { display: none !important; }
+    #print { display: block; }
+    #print .page { break-after: page; }
+    #print svg { width: 100%; height: auto; display: block; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <strong>Precision</strong>
+  <label>Open SVG <input type="file" id="file" accept=".svg,image/svg+xml" multiple></label>
+  <button id="sample">Load sample</button>
+  <button id="import">Import JSON</button>
+  <input type="file" id="importFile" accept=".json,application/json" hidden>
+  <button id="export">Export JSON</button>
+  <button id="report">Export report</button>
+  <button id="pdf" title="Opens the print dialog: choose “Save as PDF”. One page per row that passes; flagged rows are skipped.">Preview PDF</button>
+  <span id="msg"></span>
+</header>
+<main>
+  <div id="preview">Open an SVG exported from Illustrator (Object IDs: Layer Names)</div>
+  <div id="side">
+    <div id="rows"></div>
+    <div id="frames"></div>
+  </div>
+  <datalist id="fontlist"></datalist>
+  <div id="jsonpane">
+    <div id="flags"></div>
+    <strong>Job JSON</strong>
+    <textarea id="json" spellcheck="false"></textarea>
+    <div id="jsonerr"></div>
+  </div>
+</main>
+<div id="print"></div>
+<script>
+const $ = s => document.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+
+// The job: shared settings + rows. Form and JSON panel both edit it; the form edits row `cur`.
+let job = { defaults: { minSize: 6.1, minScale: 90 }, rows: [{ filename: '', fields: {} }] };
+let cur = 0;
+const templates = {}; // file name -> { wrap, svg, frames }
+let frames = [];      // frames of the current row's template
+
+// Illustrator encodes special chars in layer-name ids as _xHH_ (e.g. "$price" -> "_x24_price").
+const decodeId = id => id.replace(/_x([0-9A-Fa-f]+)_/g, (_, h) => String.fromCodePoint(parseInt(h, 16)));
+// ponytail: naive CMYK->RGB for screen preview only; real color comes from Illustrator in phase 2.
+const cmykToRgb = ([c, m, y, k]) => 'rgb(' + [c, m, y].map(v => Math.round(255 * (1 - v / 100) * (1 - k / 100))).join(',') + ')';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const tplName = ri => job.rows[ri]?.template ?? job.template;
+const tplOf = ri => templates[tplName(ri)];
+
+// Google Fonts with Thai, and the weights each family ships. The job JSON names fonts by PostScript
+// name (what Illustrator uses); the preview maps that back to family + weight.
+// ponytail: PostScript names follow Google's static-file pattern (Family-Style); confirm on the plugin PC.
+const FONTS = {
+  'Sarabun': [100, 200, 300, 400, 500, 600, 700, 800],
+  'Noto Sans Thai': [100, 200, 300, 400, 500, 600, 700, 800, 900],
+  'Noto Serif Thai': [100, 200, 300, 400, 500, 600, 700, 800, 900],
+  'Kanit': [100, 200, 300, 400, 500, 600, 700, 800, 900],
+  'Prompt': [100, 200, 300, 400, 500, 600, 700, 800, 900],
+  'IBM Plex Sans Thai': [100, 200, 300, 400, 500, 600, 700],
+  'Anuphan': [100, 200, 300, 400, 500, 600, 700],
+  'Mitr': [200, 300, 400, 500, 600, 700],
+  'Bai Jamjuree': [200, 300, 400, 500, 600, 700],
+  'Chakra Petch': [300, 400, 500, 600, 700],
+};
+const STYLE = { 100: 'Thin', 200: 'ExtraLight', 300: 'Light', 400: 'Regular', 500: 'Medium', 600: 'SemiBold', 700: 'Bold', 800: 'ExtraBold', 900: 'Black' };
+const PS = {}; // "Sarabun-Bold" -> { family: 'Sarabun', weight: 700 }
+for (const [family, ws] of Object.entries(FONTS)) for (const w of ws) PS[`${family.replace(/ /g, '')}-${STYLE[w]}`] = { family, weight: w };
+// Unknown names render with the name as a family (browser falls back); validation flags them.
+const cssFont = ps => PS[ps] || { family: ps, weight: 400 };
+
+// One stylesheet for every family; the browser only downloads the files a page actually uses.
+document.head.append(Object.assign(document.createElement('link'), {
+  rel: 'stylesheet',
+  href: 'https://fonts.googleapis.com/css2?' + Object.entries(FONTS)
+    .map(([f, ws]) => `family=${f.replace(/ /g, '+')}:wght@${ws.join(';')}`).join('&') + '&display=swap',
+}));
+
+// Font picker suggestions: "Sarabun-Bold" with "Sarabun 700" as the hint.
+$('#fontlist').innerHTML = Object.entries(PS).map(([ps, c]) => `<option value="${ps}">${c.family} ${c.weight}</option>`).join('');
+
+// Fonts arrive async: load each used font once, then re-fit everything (metrics change).
+const fontPending = new Set();
+function needFont(ps) {
+  const c = cssFont(ps), spec = `${c.weight} 16px '${c.family}'`;
+  if (!PS[ps] || fontPending.has(spec) || document.fonts.check(spec, 'กA')) return;
+  fontPending.add(spec);
+  document.fonts.load(spec, 'กA').then(() => { fitCache.clear(); frames.forEach(render); queueFlags(); });
+}
+
+// {abv} as-is, {abv,} comma decimal, {abv.} dot decimal. Unknown vars stay literal (validation flags them).
+const subVars = (s, vars = {}) => String(s).replace(/\{(\w+)([.,]?)\}/g, (m, k, sep) =>
+  !(k in vars) ? m : sep === ',' ? String(vars[k]).replace('.', ',') : sep === '.' ? String(vars[k]).replace(',', '.') : String(vars[k]));
+
+// runs -> lines of segments. A "\n" inside any run starts a new line; each segment keeps its run's style.
+function toLines(runs, vars) {
+  const lines = [[]];
+  for (const r of runs) subVars(r.text ?? '', vars).split('\n').forEach((piece, i) => {
+    if (i) lines.push([]);
+    if (piece) lines.at(-1).push({ ...r, text: piece });
+  });
+  return lines;
+}
+
+// Thai has no spaces between words: the browser's own segmenter finds break points.
+const segmenter = new Intl.Segmenter('th', { granularity: 'word' });
+const ctx = document.createElement('canvas').getContext('2d');
+const metrics = (text, px, font) => { const c = cssFont(font); ctx.font = `${c.weight} ${px}px '${c.family}'`; return ctx.measureText(text); };
+const measure = (text, px, font) => metrics(text, px, font).width;
+// Vertical extent of a line: the font's ascent/descent, or the real glyphs if taller
+// (Thai tone marks can stack above the ascent line).
+const extent = (line, base, side) => Math.max(0, ...line.map(s => {
+  const m = metrics(s.text, s.px, s.font ?? base.font);
+  return side === 'up' ? Math.max(m.fontBoundingBoxAscent, m.actualBoundingBoxAscent)
+                       : Math.max(m.fontBoundingBoxDescent, m.actualBoundingBoxDescent);
+}));
+
+// Greedy word wrap of styled lines into width W. Font sizes are multiplied by k.
+function wrap(hardLines, W, k, base) {
+  const lines = [];
+  let maxW = 0;
+  for (const hard of hardLines) {
+    let line = [], w = 0;
+    for (const s of hard) for (const { segment } of segmenter.segment(s.text)) {
+      const px = (s.size ?? base.size) * k, tw = measure(segment, px, s.font ?? base.font);
+      if (w + tw > W && line.length) {
+        lines.push(line); maxW = Math.max(maxW, w); line = []; w = 0;
+        if (!segment.trim()) continue; // drop the space that caused the break
+      }
+      line.push({ ...s, text: segment, px }); w += tw;
+    }
+    lines.push(line); maxW = Math.max(maxW, w);
+  }
+  return { lines, maxW };
+}
+
+// Shrink-to-fit: font size down to the floor first, then horizontal scale down to its floor.
+// Returns { lines, k (size factor), s (h-scale), ok }. ok=false means it overflows even at both floors.
+function fit(f, d, vars) {
+  const base = { size: d.size ?? f.def.size, font: d.font ?? f.def.font };
+  const hard = toLines(d.runs ?? [{ text: d.text ?? f.def.text }], vars);
+  needFont(base.font);
+  hard.flat().forEach(s => s.font && needFont(s.font));
+  const smallest = Math.min(base.size, ...hard.flat().map(s => s.size ?? base.size));
+  const minSize = d.minSize ?? job.defaults?.minSize ?? 0;
+  const minScale = (d.minScale ?? job.defaults?.minScale ?? 100) / 100;
+  const kMin = Math.min(1, minSize / smallest); // no run may go below minSize
+  const tryFit = (k, s) => {
+    const r = wrap(hard, f.box.width / s, k, base);
+    const px = base.size * k;
+    // A bigger run (e.g. "5.5" in "5.5% ABV") makes its line taller than the field size.
+    r.top = extent(r.lines[0], base, 'up');
+    const bottom = extent(r.lines.at(-1), base, 'down');
+    const h = r.top + bottom + (r.lines.length - 1) * f.def.lhRatio * px;
+    return { ...r, k, s, base, ok: r.maxW <= f.box.width / s + 0.01 && h <= f.box.height + 0.01 };
+  };
+  // ponytail: linear 1% steps, ~100 wraps worst case per frame; binary search if it ever feels slow.
+  for (let k = 1; k >= kMin - 1e-9; k -= 0.01) { const r = tryFit(k, 1); if (r.ok) return r; }
+  for (let s = 1; s >= minScale - 1e-9; s -= 0.01) { const r = tryFit(kMin, s); if (r.ok) return r; }
+  return tryFit(kMin, minScale);
+}
+
+// Every row's frames are fitted for validation; cache so unchanged rows don't re-fit on each keystroke.
+const fitCache = new Map();
+function fitRow(ri, f) {
+  const row = job.rows[ri], d = row.fields?.[f.name] || {};
+  const key = JSON.stringify([tplName(ri), f.name, d, row.vars, job.defaults]);
+  if (!fitCache.has(key)) fitCache.set(key, fit(f, d, row.vars));
+  return fitCache.get(key);
+}
+
+// Every reason a row is skipped. rgb-template is checked by the plugin only: an SVG has no CMYK mode.
+// namesOf(ri) -> frame names of that row's template, or null when the template isn't loaded.
+const isCmyk = c => Array.isArray(c?.cmyk) && c.cmyk.length === 4 && c.cmyk.every(v => typeof v === 'number' && v >= 0 && v <= 100);
+function validate(job, namesOf, fitOf) {
+  const flags = [];
+  const add = (row, field, reason, detail = '') => flags.push({ row, field, reason, detail });
+  (job.rows || []).forEach((row, ri) => {
+    const fields = row.fields || {};
+    if (!row.filename) add(ri, '', 'filename-missing');
+    const tpl = row.template ?? job.template;
+    const names = namesOf(ri);
+    if (!tpl) add(ri, '', 'template-missing');
+    else if (!names) add(ri, '', 'template-missing', `${tpl} (not loaded)`);
+    if (!names) return; // can't check frames without the template
+    for (const k of Object.keys(fields)) if (!names.includes(k)) add(ri, k, 'unknown-frame');
+    for (const n of names) {
+      const d = fields[n];
+      const parts = d?.runs ?? (d ? [d] : []);
+      const text = parts.map(p => p?.text ?? '').join('');
+      if (!text.trim()) { add(ri, n, 'frame-no-data'); continue; }
+      for (const p of [d, ...(d.runs || [])]) {
+        if (p?.font && !PS[p.font]) add(ri, n, 'font-missing', p.font);
+        if (p?.color !== undefined && !isCmyk(p.color)) add(ri, n, 'rgb-color', JSON.stringify(p.color));
+      }
+      for (const [, v] of text.matchAll(/\{(\w+)[.,]?\}/g)) if (!(v in (row.vars || {}))) add(ri, n, 'unknown-var', `{${v}}`);
+      const ft = fitOf(ri, n);
+      if (ft && !ft.ok) add(ri, n, 'overflow', `${(ft.base.size * ft.k).toFixed(1)}pt · ${Math.round(ft.s * 100)}%`);
+    }
+  });
+  return flags;
+}
+
+// self-check (open devtools console: silence = pass)
+console.assert(JSON.stringify(validate({ template: 'a.svg', rows: [
+  { fields: { t: { text: '{x} hi', font: 'Nope-Bold', color: '#fff' }, u: { text: ' ' }, z: { text: 'q' } } },
+  { filename: 'b', template: 'gone.svg', fields: {} },
+] }, ri => ri === 0 ? ['t', 'u'] : null, () => ({ ok: false, base: { size: 10 }, k: 0.61, s: 0.9 })).map(f => f.row + f.reason).sort())
+  === JSON.stringify(['0filename-missing', '0font-missing', '0frame-no-data', '0overflow', '0rgb-color', '0unknown-frame', '0unknown-var', '1template-missing']), 'validate');
+console.assert(subVars('{a,}% {a.} {a} {x}', { a: 5.5 }) === '5,5% 5.5 5.5 {x}', 'subVars');
+console.assert(JSON.stringify(toLines([{ text: 'A\nB' }, { text: 'C', size: 9 }], {}).map(l => l.map(s => s.text))) === '[["A"],["B","C"]]', 'toLines');
+console.assert(wrap([[{ text: 'แมวเป็นสัตว์เลี้ยงที่น่ารักมาก' }]], 60, 1, { size: 12, font: 'sans-serif' }).lines.length > 1, 'wrap Thai');
+
+// The frame's area box: a rect named "<id>_box", converted into the text element's own coordinates.
+function findBox(svg, el) {
+  const rect = svg.getElementById(el.id + '_box');
+  if (!rect) return null;
+  // Box layers are usually hidden; display:none has no geometry, so swap it for visibility:hidden.
+  for (let e = rect; e && e !== svg; e = e.parentNode)
+    if (getComputedStyle(e).display === 'none') { e.style.display = 'inline'; e.style.visibility = 'hidden'; }
+  const m = el.getCTM().inverse().multiply(rect.getCTM());
+  const b = rect.getBBox();
+  const pts = [[b.x, b.y], [b.x + b.width, b.y], [b.x, b.y + b.height], [b.x + b.width, b.y + b.height]]
+    .map(([x, y]) => new DOMPoint(x, y).matrixTransform(m));
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  return { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+}
+
+let tplCount = 0;
+// Parse an SVG template into the preview (kept off-screen until a row uses it). Returns an error or nothing.
+function addTemplate(text, name) {
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+  const svg = doc.querySelector('svg');
+  if (!svg || doc.querySelector('parsererror')) return `${name}: not a valid SVG`;
+  svg.querySelectorAll('script, foreignObject').forEach(e => e.remove()); // untrusted file
+  // Illustrator names classes .st0, .st1 … in every file, and inline <style> is page-global:
+  // scope each template's CSS to its own <svg> (CSS nesting) so templates don't repaint each other.
+  const scope = 'tpl' + ++tplCount;
+  svg.classList.add(scope);
+  svg.querySelectorAll('style').forEach(s => s.textContent = `.${scope} { ${s.textContent} }`);
+  if (!Object.keys(templates).length) $('#preview').replaceChildren(); // drop the placeholder text
+  templates[name]?.wrap.remove();
+  const wrap = document.createElement('div');
+  wrap.className = 'tpl off';
+  wrap.append(svg);
+  $('#preview').append(wrap); // must be in the document for getBBox/getCTM
+
+  const tfs = [...svg.querySelectorAll('text[id]')].map(el => {
+    const spans = [...el.querySelectorAll('tspan')];
+    const cs = getComputedStyle(spans[0] || el);
+    const num = (e, a) => parseFloat(e?.getAttribute(a)) || 0;
+    const size = parseFloat(cs.fontSize);
+    const y0 = num(spans[0], 'y');
+    const box = findBox(svg, el);
+    return {
+      el,
+      name: decodeId(el.id),
+      box: box || el.getBBox(), // no <name>_box rect -> fit inside the template text's own footprint
+      hasBox: !!box,
+      def: { // template values; blank form inputs fall back to these
+        text: spans.length ? spans.map(t => t.textContent).join('\n') : el.textContent,
+        size,
+        font: cs.fontFamily.replace(/["']/g, ''),
+        fill: cs.fill,
+        transform: el.getAttribute('transform') || '',
+        lhRatio: (spans.length > 1 ? num(spans[1], 'y') - y0 : size * 1.2) / size,
+      },
+    };
+  });
+  templates[name] = { wrap, svg, frames: tfs };
+  fitCache.clear();
+}
+
+// Show row i: swap in its template, rebuild the form, render, re-validate.
+function showRow(i) {
+  cur = Math.max(0, Math.min(i, job.rows.length - 1));
+  const t = tplOf(cur);
+  for (const x of Object.values(templates)) x.wrap.classList.toggle('off', x !== t);
+  frames = t ? t.frames : [];
+  buildForm();
+  fillForm();
+  frames.forEach(render);
+  updateFlags();
+}
+
+// job -> JSON panel. Skipped while the user is typing there, so their cursor isn't reset.
+function syncJson() {
+  if (document.activeElement === $('#json')) return;
+  $('#json').value = JSON.stringify(job, null, 2);
+  $('#json').classList.remove('bad');
+  $('#jsonerr').textContent = '';
+}
+
+// job -> form inputs.
+function fillForm() {
+  document.querySelectorAll('.frame').forEach(card => {
+    const d = job.rows[cur].fields?.[frames[card.dataset.i].name] || {};
+    const set = (k, v) => card.querySelector(`[data-k="${k}"]`).value = v ?? '';
+    // ponytail: runs are edited in the JSON panel only; the form shows their text read-only.
+    const ta = card.querySelector('textarea');
+    ta.disabled = !!d.runs;
+    ta.title = d.runs ? 'Mixed styles (runs) — edit in Job JSON' : '';
+    set('text', d.runs ? d.runs.map(r => r.text).join('') : d.text);
+    set('size', d.size);
+    set('font', d.font);
+    ['c', 'm', 'y', 'k'].forEach((k, i) => set(k, d.color?.cmyk?.[i]));
+    set('minSize', d.minSize);
+    set('minScale', d.minScale);
+    card.querySelector('[data-k="minSize"]').placeholder = job.defaults?.minSize ?? '';
+    card.querySelector('[data-k="minScale"]').placeholder = job.defaults?.minScale ?? '';
+    card.querySelector('.swatch').style.background = d.color?.cmyk ? cmykToRgb(d.color.cmyk) : frames[card.dataset.i].def.fill;
+  });
+}
+
+// JSON text -> job -> form + preview. Returns an error message instead of applying invalid JSON.
+function applyJob(text) {
+  let next;
+  try {
+    next = JSON.parse(text);
+    if (!next || !Array.isArray(next.rows) || !next.rows.length || next.rows.some(r => !r || typeof r.fields !== 'object'))
+      throw new Error('needs "rows": [{ "fields": { ... } }, ...]');
+  } catch (err) { return err.message; }
+  job = next;
+  showRow(cur);
+}
+
+$('#json').oninput = () => {
+  const err = applyJob($('#json').value);
+  $('#json').classList.toggle('bad', !!err);
+  $('#jsonerr').textContent = err || '';
+};
+$('#json').onblur = syncJson; // reformat once the user leaves the panel
+
+function render(f) {
+  const d = job.rows[cur].fields?.[f.name] || {};
+  const r = f.fit = fitRow(cur, f);
+  const px = r.base.size * r.k;
+  // ponytail: leading follows the field size, not the biggest run on the line; fine for label lines.
+  const lh = f.def.lhRatio * px;
+  const { x, y } = f.box;
+  f.el.replaceChildren(...r.lines.map((segs, i) => {
+    const line = document.createElementNS(NS, 'tspan');
+    line.setAttribute('x', x);
+    line.setAttribute('y', y + r.top + i * lh);
+    for (const s of segs) {
+      const t = document.createElementNS(NS, 'tspan');
+      t.textContent = s.text;
+      t.style.fontSize = s.px + 'px';
+      if (s.font) { const c = cssFont(s.font); t.style.fontFamily = `'${c.family}'`; t.style.fontWeight = c.weight; }
+      if (s.color?.cmyk) t.style.fill = cmykToRgb(s.color.cmyk);
+      line.append(t);
+    }
+    return line;
+  }));
+  // Horizontal scale anchored at the box's left edge.
+  f.el.setAttribute('transform', `${f.def.transform} translate(${x} 0) scale(${r.s} 1) translate(${-x} 0)`);
+  const bf = cssFont(r.base.font);
+  Object.assign(f.el.style, {
+    fontSize: px + 'px',
+    fontFamily: `'${bf.family}'`,
+    fontWeight: bf.weight,
+    fill: d.color?.cmyk ? cmykToRgb(d.color.cmyk) : f.def.fill,
+  });
+  const card = document.querySelector(`.frame[data-i="${frames.indexOf(f)}"]`);
+  if (card) {
+    const fitEl = card.querySelector('.fit');
+    fitEl.classList.toggle('over', !r.ok);
+    fitEl.textContent = (r.ok ? 'fits' : 'OVERFLOW at floors') + ` · ${px.toFixed(1)}pt · ${Math.round(r.s * 100)}%` +
+      (f.hasBox ? '' : ' · no _box rect, using template text size');
+    card.classList.toggle('over', !r.ok);
+  }
+  if (f.el.closest('svg').querySelector('.hl')?.dataset.name === f.name) highlight(f);
+  queueFlags();
+}
+
+// Re-validate once per batch of renders.
+let flagQueued = false;
+function queueFlags() {
+  if (flagQueued) return;
+  flagQueued = true;
+  queueMicrotask(() => { flagQueued = false; updateFlags(); });
+}
+const allFlags = () => validate(job,
+  ri => tplOf(ri)?.frames.map(f => f.name) ?? null,
+  (ri, n) => { const f = tplOf(ri)?.frames.find(f => f.name === n); return f ? fitRow(ri, f) : null; });
+
+function updateFlags() {
+  const flags = allFlags();
+  const label = f => `row ${f.row + 1}${f.field ? ' · ' + f.field : ''} — ${f.reason}${f.detail ? ': ' + f.detail : ''}`;
+  $('#flags').className = flags.length ? '' : 'ok';
+  $('#flags').innerHTML = flags.length
+    ? `<strong>Flags (${flags.length}) — flagged rows are skipped</strong><ul>${flags.map(f =>
+      `<li data-row="${f.row}" data-field="${esc(f.field)}">${esc(label(f))}</li>`).join('')}</ul>`
+    : '✓ No flags';
+  document.querySelectorAll('.frame').forEach(card => {
+    const n = frames[card.dataset.i].name;
+    card.querySelector('.cardflags').textContent = flags
+      .filter(f => f.row === cur && f.field === n && f.reason !== 'overflow') // overflow already shows in .fit
+      .map(f => f.reason + (f.detail ? ': ' + f.detail : '')).join(' · ');
+  });
+  renderRows(flags);
+}
+
+// Rows list: one line per output, red when it will be skipped.
+function renderRows(flags) {
+  const bad = new Set(flags.map(f => f.row));
+  const n = job.rows.length;
+  $('#rows').innerHTML = `<div class="row"><strong>Rows</strong>
+      <span>${n} · ${n - bad.size} ok · ${bad.size} skipped</span>
+      <button id="dupRow">Duplicate row</button><button id="delRow" ${n < 2 ? 'disabled' : ''}>Delete row</button></div>
+    <ol>${job.rows.map((r, i) => `<li data-i="${i}" class="${i === cur ? 'cur' : ''} ${bad.has(i) ? 'bad' : ''}">
+      <span>${i + 1}. ${esc(r.filename || '(no filename)')} <span class="tplname">${esc(tplName(i) || '')}</span></span>
+      <span>${bad.has(i) ? '✗ ' + flags.filter(f => f.row === i).length : '✓'}</span></li>`).join('')}</ol>`;
+}
+$('#rows').onclick = e => {
+  if (e.target.id === 'dupRow') {
+    const copy = structuredClone(job.rows[cur]);
+    copy.filename = ''; // a duplicate must get its own name (flagged until it does)
+    job.rows.splice(cur + 1, 0, copy);
+    showRow(cur + 1); syncJson();
+  } else if (e.target.id === 'delRow') {
+    job.rows.splice(cur, 1);
+    showRow(cur); syncJson();
+  } else {
+    const li = e.target.closest('li[data-i]');
+    if (li) showRow(+li.dataset.i);
+  }
+};
+
+// Click a flag -> show its row and jump to its card.
+$('#flags').onclick = e => {
+  const li = e.target.closest('li');
+  if (!li) return;
+  if (+li.dataset.row !== cur) showRow(+li.dataset.row);
+  const i = frames.findIndex(f => f.name === li.dataset.field);
+  if (i < 0) return;
+  const card = document.querySelector(`.frame[data-i="${i}"]`);
+  card.scrollIntoView({ block: 'center' });
+  card.querySelector('textarea:not(:disabled), input').focus();
+};
+
+function buildForm() {
+  if (!frames.length) {
+    const t = tplName(cur);
+    $('#frames').textContent = t && !templates[t] ? `Template "${t}" is not loaded — open it with Open SVG.` : 'No named text frames found.';
+    return;
+  }
+  $('#frames').innerHTML = frames.map((f, i) => `<div class="frame" data-i="${i}">
+    <h3>${esc(f.name)}</h3>
+    <div class="fit"></div>
+    <div class="cardflags"></div>
+    <textarea data-k="text" rows="${Math.min(4, f.def.text.split('\n').length)}"></textarea>
+    <div class="row">
+      <label>Size <input data-k="size" type="number" step="0.1" min="0" placeholder="${f.def.size}"></label>
+      <label>Font <input data-k="font" class="font" list="fontlist" placeholder="${esc(f.def.font)}"></label>
+    </div>
+    <div class="row cmyk">CMYK
+      ${'cmyk'.split('').map(c => `<input data-k="${c}" type="number" min="0" max="100" placeholder="${c.toUpperCase()}">`).join('')}
+      <span class="swatch" style="background:${f.def.fill}"></span>
+    </div>
+    <div class="row">
+      <label>Min size <input data-k="minSize" type="number" step="0.1" min="0"></label>
+      <label>Min scale % <input data-k="minScale" type="number" min="1" max="100"></label>
+    </div>
+  </div>`).join('');
+}
+
+$('#frames').oninput = e => {
+  const card = e.target.closest('.frame'); if (!card) return;
+  const f = frames[card.dataset.i];
+  const v = k => card.querySelector(`[data-k="${k}"]`).value.trim();
+  const n = k => v(k) === '' ? undefined : +v(k);
+  const cmyk = ['c', 'm', 'y', 'k'];
+  const row = job.rows[cur];
+  row.fields ??= {};
+  const prev = row.fields[f.name] || {};
+  const d = prev.runs ? { runs: prev.runs } : { text: card.querySelector('textarea').value };
+  if (n('size') !== undefined) d.size = n('size');
+  if (v('font')) d.font = v('font');
+  if (cmyk.some(k => v(k) !== '')) d.color = { cmyk: cmyk.map(k => n(k) ?? 0) };
+  if (n('minSize') !== undefined) d.minSize = n('minSize');
+  if (n('minScale') !== undefined) d.minScale = n('minScale');
+  row.fields[f.name] = d;
+  card.querySelector('.swatch').style.background = d.color ? cmykToRgb(d.color.cmyk) : f.def.fill;
+  render(f);
+  syncJson();
+};
+$('#frames').addEventListener('focusin', e => {
+  const card = e.target.closest('.frame'); if (!card) return;
+  document.querySelectorAll('.frame.sel').forEach(c => c.classList.remove('sel'));
+  card.classList.add('sel');
+  highlight(frames[card.dataset.i]);
+});
+
+// Outline the frame's area box (red when the text overflows it).
+function highlight(f) {
+  document.querySelectorAll('.hl').forEach(e => e.remove());
+  const r = document.createElementNS(NS, 'rect');
+  r.setAttribute('class', f.fit?.ok === false ? 'hl over' : 'hl');
+  r.dataset.name = f.name;
+  for (const k of ['x', 'y', 'width', 'height']) r.setAttribute(k, f.box[k]);
+  if (f.def.transform) r.setAttribute('transform', f.def.transform); // box is in the element's own space
+  f.el.after(r);
+}
+
+// Open SVG(s): templates a row already names are just (re)loaded; otherwise the first one starts a new job.
+$('#file').onchange = async e => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  const errs = [];
+  for (const f of files) { const err = addTemplate(await f.text(), f.name); if (err) errs.push(err); }
+  $('#msg').textContent = errs.join(' · ');
+  const used = new Set(job.rows.map((_, i) => tplName(i)));
+  const fresh = files.find(f => templates[f.name] && !used.has(f.name));
+  if (fresh) {
+    const t = templates[fresh.name];
+    job = { template: fresh.name, defaults: job.defaults,
+      rows: [{ filename: '', fields: Object.fromEntries(t.frames.map(f => [f.name, { text: f.def.text }])) }] };
+    cur = 0;
+  }
+  showRow(cur);
+  syncJson();
+};
+$('#sample').onclick = async () => {
+  for (const n of ['label.svg', 'label-b.svg']) addTemplate(await (await fetch('sample/' + n)).text(), n);
+  cur = 0;
+  applyJob(await (await fetch('sample/label.job.json')).text());
+  syncJson();
+};
+
+$('#import').onclick = () => $('#importFile').click();
+$('#importFile').onchange = async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  cur = 0;
+  const err = applyJob(await f.text());
+  $('#msg').textContent = err ? `Import failed: ${err}` : '';
+  if (!err) syncJson();
+  e.target.value = ''; // allow re-importing the same file
+};
+
+const download = (obj, name) => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+const baseName = () => (job.template || 'job').replace(/\.\w+$/, '');
+$('#export').onclick = () => download(job, baseName() + '.job.json');
+
+// Preview PDF via the browser's own "Save as PDF": render each passing row, snapshot its SVG as a page.
+// RGB screen preview only — the print-ready CMYK PDF comes from the Illustrator plugin.
+function buildPrint() {
+  const bad = new Set(allFlags().map(f => f.row));
+  const keep = cur, pages = [];
+  job.rows.forEach((r, i) => {
+    if (bad.has(i) || !tplOf(i)) return;
+    showRow(i);
+    const svg = tplOf(i).svg.cloneNode(true);
+    svg.querySelectorAll('.hl').forEach(e => e.remove());
+    const page = document.createElement('div');
+    page.className = 'page';
+    page.dataset.filename = r.filename;
+    page.append(svg);
+    pages.push(page);
+  });
+  showRow(keep);
+  $('#print').replaceChildren(...pages);
+  // Page size = first page's artboard (SVG units as pt).
+  // ponytail: one @page size per PDF; mixed artboard sizes need named pages.
+  const vb = pages[0]?.querySelector('svg').viewBox.baseVal;
+  $('#pagesize')?.remove();
+  if (vb) document.head.append(Object.assign(document.createElement('style'), {
+    id: 'pagesize', textContent: `@page { size: ${vb.width}pt ${vb.height}pt; margin: 0; }`,
+  }));
+  return { pages: pages.length, skipped: bad.size };
+}
+$('#pdf').onclick = () => {
+  const { pages, skipped } = buildPrint();
+  if (!pages) { $('#msg').textContent = 'Preview PDF: no rows pass — fix the flags first.'; return; }
+  $('#msg').textContent = skipped ? `Preview PDF: ${pages} page(s), ${skipped} flagged row(s) skipped.` : '';
+  document.title = baseName() + '-preview'; // default file name in "Save as PDF"
+  window.print();
+  document.title = 'Precision';
+};
+
+// Same shape as the plugin's report.json: one entry per row, ok or skipped with its flags.
+$('#report').onclick = () => {
+  const flags = allFlags();
+  const rows = job.rows.map((r, i) => {
+    const fl = flags.filter(f => f.row === i).map(({ field, reason, detail }) => ({ field, reason, detail }));
+    return { row: i + 1, filename: r.filename || null, template: tplName(i) || null, status: fl.length ? 'skipped' : 'ok', flags: fl };
+  });
+  download({ generated: new Date().toISOString(), summary: { rows: rows.length, ok: rows.filter(r => r.status === 'ok').length,
+    skipped: rows.filter(r => r.status === 'skipped').length }, rows }, baseName() + '.report.json');
+};
+</script>
+</body>
+</html>
